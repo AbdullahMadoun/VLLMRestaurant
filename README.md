@@ -1,38 +1,25 @@
 # Food Classification System - Project Proposal
 
-**Project Name:** Vision-Based Food Classification and Retrieval System  
-**Prepared By:** Abdulrazzak Ghazal and Abdullah Madoun  
+**Course Project Proposal**  
 **Date:** February 14, 2026  
-**Version:** 1.0  
-**Status:** Proposal
 
 ---
 
 ## Executive Summary
 
-This proposal outlines the development of an automated food classification system that leverages Vision-Language Models (VLLMs) and vector similarity search to accurately identify and categorize food items from images. The system aims to build a comprehensive food reference database and enable real-time food recognition for applications in dietary tracking, restaurant menu analysis, or nutritional logging.
+This project explores the development of an automated food classification system using Vision-Language Models (VLLMs) and vector similarity search. The goal is to investigate the feasibility and effectiveness of using text descriptions as an intermediate representation for food image classification.
 
-**Key Objectives:**
-- Build a scalable food classification system with high accuracy
-- Enable real-time inference on food images
-- Create a maintainable reference database of food items
-- Optimize for cost-effectiveness and performance
+**Project Objectives:**
+- Implement and evaluate a VLLM-based food classification approach
+- Compare different architectural strategies (text-based vs. direct vision embeddings)
+- Analyze trade-offs in accuracy, speed, and implementation complexity
+- Provide recommendations based on experimental results
 
 ---
 
 ## 1. Background & Motivation
 
-### Problem Statement
-Accurate food classification from images is challenging due to:
-- Wide variety of food items and cuisines
-- Visual similarity between different dishes
-- Variations in presentation, portion sizes, and plating
-- Need for consistent classification across different contexts
-
-### Proposed Solution
-A two-stage retrieval-based system that:
-1. **Training Phase:** Processes food images through a VLLM to generate detailed descriptions, vectorizes them, and stores in a database
-2. **Inference Phase:** Processes new images similarly and retrieves the closest matches from the reference database
+Accurate food classification from images is challenging due to visual similarity between dishes, variations in presentation and lighting, and the need for consistent classification. This project investigates whether using Vision-Language Models to generate text descriptions as an intermediate representation can improve classification performance compared to direct vision-based approaches.
 
 ---
 
@@ -40,9 +27,9 @@ A two-stage retrieval-based system that:
 
 ### 2.1 Training Pipeline
 
-```text
-Input Image -> VLLM (Low Temp) -> Detailed Description -> Text Embedding -> Vector Database
-                                                              |
+```
+Input Image → VLLM (Low Temp) → Detailed Description → Text Embedding → Vector Database
+                                                              ↓
                                                     Similarity Merging (85%+)
 ```
 
@@ -51,12 +38,12 @@ Input Image -> VLLM (Low Temp) -> Detailed Description -> Text Embedding -> Vect
 2. Generate extremely detailed descriptions with minimal temperature (0.1-0.3)
 3. Convert descriptions to vector embeddings
 4. Store in vector database with food name labels
-5. Merge highly similar entries (>=85% similarity) into single classes
+5. Merge highly similar entries (≥85% similarity) into single classes
 
 ### 2.2 Inference Pipeline
 
-```text
-Query Image -> VLLM (Same Prompt) -> Description -> Embedding -> Vector Search -> Classification
+```
+Query Image → VLLM (Same Prompt) → Description → Embedding → Vector Search → Classification
 ```
 
 **Process:**
@@ -65,20 +52,41 @@ Query Image -> VLLM (Same Prompt) -> Description -> Embedding -> Vector Search -
 3. Embed description and perform similarity search
 4. Return closest match as classification result
 
-### 2.3 Technical Specifications
+## 2. Proposed Architecture (Original Approach)
 
-| Component | Technology | Configuration |
-|-----------|------------|---------------|
-| **VLLM Model** | FoodLMM (vision components only) | Temperature: 0.1-0.3 |
-| **Embedding Model** | TBD (Sentence Transformers / OpenAI) | - |
-| **Vector Database** | TBD (Pinecone / Weaviate / Qdrant) | Similarity metric: Cosine |
-| **Similarity Threshold** | 85% | For class merging |
+### 2.1 Training Pipeline
+
+```
+Input Image → VLLM (Low Temp) → Detailed Description → Text Embedding → Vector Database
+                                                              ↓
+                                                    Similarity Merging (85%+)
+```
+
+**Process:**
+1. Feed food images to a Vision-Language Model (considering FoodLMM)
+2. Generate detailed descriptions with low temperature (0.1-0.3) for consistency
+3. Convert descriptions to vector embeddings
+4. Store in vector database
+5. Merge highly similar entries (≥85% similarity) into single classes
+
+### 2.2 Inference Pipeline
+
+```
+Query Image → VLLM (Same Prompt) → Description → Embedding → Vector Search → Classification
+```
+
+### 2.3 Key Questions to Investigate
+
+- Which embedding model to use? (Sentence Transformers vs OpenAI vs model's text encoder)
+- What is the optimal similarity threshold?
+- How much does description variance affect accuracy?
+- Is the two-stage pipeline worth the computational cost?
 
 ---
 
 ## 3. Architecture Analysis
 
-### 3.1 Strengths
+### 3.1 Strengths ✅
 
 1. **Leverages Powerful Models**
    - FoodLMM has strong food-specific understanding
@@ -96,504 +104,397 @@ Query Image -> VLLM (Same Prompt) -> Description -> Embedding -> Vector Search -
    - Vector search is fast once database is built
    - Can handle large food catalogs
 
-### 3.2 Critical Issues
+### 3.2 Potential Issues
 
-#### Issue #1: Inefficient Pipeline
-- **Problem:** Two-stage conversion (Image -> Text -> Embedding) is computationally expensive
-- **Impact:** Slow inference (100-500ms per query), high operational costs
-- **Severity:** High
+#### Issue #1: Computational Inefficiency
+- Two-stage conversion (Image → Text → Embedding) is slower than direct vision embeddings
+- Each inference requires a full VLLM forward pass
+- Estimated latency: 100-500ms per image vs 10-50ms for direct vision approaches
 
 #### Issue #2: Description Consistency
-- **Problem:** Even with low temperature, subtle variations in descriptions can occur
-  - Example: "Grilled chicken breast with char marks" vs "Charred chicken breast with grill lines"
-- **Impact:** Fragmented classes, reduced retrieval accuracy
-- **Severity:** High
+- Even with low temperature, descriptions may vary slightly
+- Example: "Grilled chicken with char marks" vs "Charred chicken with grill lines"
+- Could fragment similar items into different classes
 
-#### Issue #3: Missing Technical Specification
-- **Problem:** Vectorization method not specified
-- **Critical Decision Needed:**
-  - Sentence Transformers? (e.g., all-MiniLM-L6-v2)
-  - OpenAI embeddings? (text-embedding-3-small)
-  - FoodLMM's text encoder?
-- **Impact:** Wrong choice could invalidate entire approach
-- **Severity:** Critical
+#### Issue #3: Embedding Choice
+**Critical decision needed:** Which text embedding model?
+- Sentence Transformers (e.g., all-MiniLM-L6-v2)
+- OpenAI embeddings (text-embedding-3-small)
+- VLLM's own text encoder
 
-#### Issue #4: Arbitrary Similarity Threshold
-- **Problem:** 85% threshold has no empirical basis
-- **Risks:**
-  - Too high -> Fragments similar items ("pizza" vs "cheese pizza")
-  - Too low -> Merges different items ("chicken nuggets" vs "fried chicken")
-- **Severity:** Medium
-
-#### Issue #5: Latency Bottleneck
-```text
-Per-Query Latency:
-- VLLM Inference: 100-500ms (80-95% of total time)
-- Text Embedding: 10-50ms
-- Vector Search: 1-10ms
-Total: ~150-600ms per image
-```
-- **Problem:** VLLM inference dominates latency
-- **Impact:** Difficult for real-time applications
-- **Severity:** High
+#### Issue #4: Arbitrary Threshold
+- 85% similarity threshold has no empirical basis
+- Risk of fragmenting similar items (too high) or merging different items (too low)
+- Needs experimental validation
 
 ---
 
-## 4. Alternative Approaches
+## 4. Alternative Approaches to Evaluate
 
-### 4.1 Recommended: Direct Vision Embeddings
+### 4.1 Baseline: Direct Vision Embeddings
 
 **Architecture:**
-```text
-Training:  Image -> Vision Encoder -> Embedding -> Vector Database
-Inference: Image -> Vision Encoder -> Embedding -> Search -> Classification
+```
+Training:  Image → Vision Encoder (CLIP/DINOv2) → Embedding → Vector Database
+Inference: Image → Vision Encoder → Embedding → Search → Classification
 ```
 
-**Advantages:**
-- **10-50x faster** - No text generation overhead
-- **More consistent** - Direct visual features, no linguistic variation
-- **Lower cost** - Single forward pass vs VLLM generation
-- **Proven approach** - CLIP, DINOv2 excel at this task
+**Why evaluate this:**
+- Industry-standard approach
+- 10-50x faster than text-based pipeline
+- Provides baseline to compare against
+- More consistent representations (no linguistic variation)
 
-**Technology Stack:**
-| Component | Recommended Options |
-|-----------|-------------------|
-| Vision Encoder | CLIP ViT-L/14, DINOv2, FoodLMM vision backbone |
-| Embedding Dim | 512-1024 |
-| Vector DB | Qdrant (open-source, fast) |
-| Search | ANN with HNSW indexing |
+**Possible models:**
+- CLIP (ViT-B/32 or ViT-L/14)
+- DINOv2
+- FoodLMM's vision backbone only
 
-**Performance Estimate:**
-- Inference latency: 10-50ms per image
-- Accuracy: Comparable or better than text-based approach
-- Cost: ~90% reduction vs VLLM pipeline
+### 4.2 Hybrid Approach (Optional)
 
-### 4.2 Alternative: Hybrid Approach
-
-**Architecture:**
-```text
-Fast Path:  Image -> Vision Embedding -> Quick Search -> Confident? -> Return
-                                            |
-                                            v Not Confident
-Slow Path:  -> VLLM Description -> Semantic Search -> Return
+If time permits, could explore:
+```
+Quick Path:  Image → Vision Embedding → Search (if confident) → Return
+Slow Path:   → VLLM Description → Search (if uncertain) → Return
 ```
 
-**Use Cases:**
-- Fast path for clear, common foods (90%+ of queries)
-- Slow path for ambiguous or rare items (<10%)
-
-**Advantages:**
-- Balances speed and accuracy
-- Maintains VLLM capabilities for edge cases
-- Cost-effective (fewer VLLM calls)
-
-### 4.3 Alternative: Fine-Tuned Classifier
-
-**When Appropriate:**
-- Fixed set of food classes (<1000 categories)
-- Classes do not change frequently
-- Need maximum speed and accuracy
-
-**Approach:**
-- Fine-tune ViT or EfficientNet on labeled food dataset
-- Direct classification, no retrieval needed
-- 1-5ms inference latency
-
-**Trade-offs:**
-- Not flexible for new classes (requires retraining)
-- Best for constrained problem spaces
+This balances speed (vision) with semantic understanding (VLLM) for edge cases.
 
 ---
 
-## 5. Recommended Implementation Plan
+## 5. Project Plan
 
-### Phase 1: Proof of Concept (4 weeks)
+### Timeline: 8-10 weeks
 
-**Week 1-2: Data Preparation**
-- [ ] Collect diverse food image dataset (1000+ images, 100+ classes)
-- [ ] Establish ground truth labels
-- [ ] Create train/val/test splits (70/15/15)
+**Weeks 1-2: Setup & Data Preparation**
+- Set up development environment (Google Colab or local GPU)
+- Download public food dataset (Food-101 or subset)
+- Split data: 70% train, 15% validation, 15% test
+- Explore 50-100 food categories to keep scope manageable
 
-**Week 3: Baseline Implementation**
-- [ ] Implement direct vision embedding approach (CLIP)
-- [ ] Set up vector database (Qdrant)
-- [ ] Build basic inference API
+**Weeks 3-4: Implement Baseline**
+- Implement direct vision embedding approach (CLIP)
+- Set up simple vector database (FAISS or Qdrant)
+- Build basic inference pipeline
+- Measure baseline accuracy and speed
 
-**Week 4: Evaluation**
-- [ ] Measure accuracy on test set
-- [ ] Benchmark latency and throughput
-- [ ] Compare against original text-based approach
+**Weeks 5-6: Implement Text-Based Approach**
+- Choose VLLM (could use open-source alternatives if FoodLMM unavailable)
+- Generate descriptions with different temperature settings
+- Test different text embedding models
+- Experiment with similarity thresholds (70%, 80%, 85%, 90%)
 
-**Success Criteria:**
-- Top-1 accuracy >= 75%
-- Top-5 accuracy >= 90%
-- Inference latency < 100ms
-- System handles 100+ QPS
+**Weeks 7-8: Evaluation & Analysis**
+- Compare approaches on same test set
+- Measure: accuracy, inference time, memory usage
+- Analyze failure cases
+- Document findings
 
-### Phase 2: Optimization (3 weeks)
-
-**Week 5-6: Model Enhancement**
-- [ ] Experiment with different vision encoders (DINOv2, FoodLMM backbone)
-- [ ] Optimize embedding dimension
-- [ ] Fine-tune similarity metrics
-- [ ] Implement data augmentation strategies
-
-**Week 7: Infrastructure**
-- [ ] Optimize vector database configuration
-- [ ] Implement caching layer
-- [ ] Set up monitoring and logging
-- [ ] Load testing and performance tuning
-
-**Success Criteria:**
-- Top-1 accuracy >= 85%
-- Inference latency < 50ms
-- Cost per 1000 queries < $0.10
-
-### Phase 3: Production Deployment (2 weeks)
-
-**Week 8: Production Readiness**
-- [ ] Containerize application (Docker)
-- [ ] Set up CI/CD pipeline
-- [ ] Implement error handling and fallbacks
-- [ ] Security hardening
-
-**Week 9: Deployment**
-- [ ] Deploy to staging environment
-- [ ] Conduct user acceptance testing
-- [ ] Production rollout
-- [ ] Documentation and handoff
+**Weeks 9-10: Report & Presentation**
+- Write final report
+- Create presentation slides
+- Prepare demo (if possible)
 
 ---
 
-## 6. Improvements for Text-Based Approach (If Required)
+## 6. Implementation Considerations
 
-If the original text-based approach must be used, implement these critical improvements:
+### 6.1 For Text-Based Approach
 
-### 6.1 Structured Prompting
-```text
-Prompt Template:
-"Describe this food item in exactly this format:
-1. Main ingredient: [ingredient]
-2. Preparation method: [method]
-3. Visible components: [list]
-4. Distinctive features: [features]
-
-Be concise and consistent. Use the same terminology for similar items."
+**Structured Prompting:**
+```
+Template: "Describe this food item using:
+- Main ingredient: [ingredient]
+- Preparation: [method]
+- Visible components: [list]
+Keep descriptions consistent and concise."
 ```
 
-### 6.2 Embedding Strategy
-**Recommended:** Sentence Transformers with `all-mpnet-base-v2`
-- Optimized for semantic similarity
-- 768-dimensional embeddings
-- Good balance of speed and accuracy
+**Embedding Model Options:**
+- Sentence Transformers: `all-MiniLM-L6-v2` or `all-mpnet-base-v2`
+- Can experiment with different models and compare
 
-### 6.3 Threshold Optimization
-- Run grid search on validation set (70%-95% in 5% increments)
-- Use silhouette score to measure cluster quality
-- Validate with human review of merged classes
+**Threshold Selection:**
+- Test range: 70%, 75%, 80%, 85%, 90%
+- Use validation set to determine optimal value
+- Manual inspection of merged classes
 
-### 6.4 Caching Layer
-```text
-Cache Structure:
-- Key: Image perceptual hash
-- Value: {description, embedding, timestamp}
-- Invalidation: 30-day TTL
-```
-Reduces redundant VLLM calls by 40-60% in production
+### 6.2 For Vision-Based Approach
 
-### 6.5 Batch Processing
-- Process training images in batches of 8-16
-- Reduces VLLM overhead
-- Speeds up database building by 3-5x
+**Model Selection:**
+- CLIP: Pre-trained, good zero-shot performance
+- Could try different architectures (ViT-B/32 vs ViT-L/14)
+
+**Vector Database:**
+- FAISS (simple, local, good for projects)
+- Qdrant (if want to learn more complex system)
+
+### 6.3 Evaluation Metrics
+
+Focus on these key metrics:
+- **Top-1 Accuracy:** Percentage of correct first predictions
+- **Top-5 Accuracy:** Percentage correct in top 5 results
+- **Inference Time:** Average time per image
+- **Confusion Analysis:** Which foods get confused most?
 
 ---
 
-## 7. Technical Architecture (Recommended Approach)
+## 7. System Architecture Overview
 
-```text
-+-------------------------------------------------------------+
-|                     Training Pipeline                       |
-+-------------------------------------------------------------+
-|                                                             |
-|  [Food Images] -> [Vision Encoder] -> [Embeddings]         |
-|                          |                                  |
-|                          v                                  |
-|                  [Class Clustering]                         |
-|                          |                                  |
-|                          v                                  |
-|              [Vector Database Storage]                      |
-|              - Food class labels                            |
-|              - Image embeddings                             |
-|              - Metadata (source, date, etc.)               |
-|                                                             |
-+-------------------------------------------------------------+
+### Approach A: Text-Based (Original)
+```
+┌─────────────────────────────────────────┐
+│         Training Phase                   │
+├─────────────────────────────────────────┤
+│                                          │
+│  Images → VLLM → Descriptions           │
+│             ↓                            │
+│        Text Embeddings                   │
+│             ↓                            │
+│      Vector Database                     │
+│                                          │
+└─────────────────────────────────────────┘
 
-+-------------------------------------------------------------+
-|                     Inference Pipeline                      |
-+-------------------------------------------------------------+
-|                                                             |
-|  [Query Image] -> [Vision Encoder] -> [Query Embedding]    |
-|                                             |               |
-|                                             v               |
-|                                  [Vector Search]            |
-|                                             |               |
-|                                             v               |
-|                               [Top-K Similar Items]         |
-|                                             |               |
-|                                             v               |
-|                            [Re-rank & Threshold]            |
-|                                             |               |
-|                                             v               |
-|                              [Classification]               |
-|                                                             |
-+-------------------------------------------------------------+
+┌─────────────────────────────────────────┐
+│         Inference Phase                  │
+├─────────────────────────────────────────┤
+│                                          │
+│  Query Image → VLLM → Description       │
+│                  ↓                       │
+│            Text Embedding                │
+│                  ↓                       │
+│           Vector Search                  │
+│                  ↓                       │
+│            Classification                │
+│                                          │
+└─────────────────────────────────────────┘
 ```
 
-### 7.1 Component Specifications
-
-#### Vision Encoder
-```python
-Model: CLIP ViT-L/14 or DINOv2 ViT-L/14
-Input: 224x224 RGB images
-Output: 768-dim embeddings
-Batch size: 32
-Device: GPU (T4 or better)
+### Approach B: Vision-Based (Baseline)
 ```
+┌─────────────────────────────────────────┐
+│         Training Phase                   │
+├─────────────────────────────────────────┤
+│                                          │
+│  Images → Vision Encoder (CLIP)         │
+│                  ↓                       │
+│          Image Embeddings                │
+│                  ↓                       │
+│         Vector Database                  │
+│                                          │
+└─────────────────────────────────────────┘
 
-#### Vector Database
-```yaml
-Database: Qdrant
-Collection Config:
-  - Vector size: 768
-  - Distance: Cosine
-  - HNSW parameters:
-      m: 16
-      ef_construct: 200
-  - Quantization: Scalar (for speed)
-```
-
-#### API Service
-```yaml
-Framework: FastAPI
-Workers: 4 (uvicorn)
-Async: True
-Rate limiting: 1000 req/min
-Timeout: 5 seconds
+┌─────────────────────────────────────────┐
+│         Inference Phase                  │
+├─────────────────────────────────────────┤
+│                                          │
+│  Query Image → Vision Encoder           │
+│                  ↓                       │
+│           Image Embedding                │
+│                  ↓                       │
+│            Vector Search                 │
+│                  ↓                       │
+│            Classification                │
+│                                          │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 8. Performance Metrics & KPIs
+## 8. Expected Outcomes & Evaluation
 
-### 8.1 Accuracy Metrics
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Top-1 Accuracy | >= 85% | % correct first prediction |
-| Top-5 Accuracy | >= 95% | % correct in top 5 |
-| mAP (mean Average Precision) | >= 0.80 | Retrieval quality |
-| F1-Score (per class) | >= 0.75 | Precision-recall balance |
+### 8.1 Comparison Metrics
 
-### 8.2 Performance Metrics
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Inference Latency (p50) | < 50ms | Median response time |
-| Inference Latency (p99) | < 150ms | 99th percentile |
-| Throughput | > 100 QPS | Queries per second |
-| Database Query Time | < 10ms | Vector search latency |
+Will compare both approaches on:
 
-### 8.3 Operational Metrics
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Cost per 1000 queries | < $0.10 | Infrastructure + API costs |
-| Uptime | > 99.5% | System availability |
-| Error rate | < 0.5% | Failed requests |
-| Cache hit rate | > 60% | Cached responses |
+| Metric | Why It Matters |
+|--------|----------------|
+| **Top-1 Accuracy** | How often the top prediction is correct |
+| **Top-5 Accuracy** | How often correct answer is in top 5 |
+| **Average Inference Time** | Speed comparison |
+| **Confusion Patterns** | Which foods get mixed up |
 
----
+### 8.2 Research Questions to Answer
 
-## 9. Risk Assessment & Mitigation
+1. Does using text descriptions improve accuracy over direct vision embeddings?
+2. How much does description consistency affect results?
+3. What is the optimal similarity threshold for merging classes?
+4. Is the computational overhead of VLLM justified by accuracy gains?
+5. Which embedding model works best for food descriptions?
 
-### 9.1 Technical Risks
+### 8.3 Expected Findings
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Low accuracy on rare foods | High | Medium | Implement fallback to VLLM for low-confidence predictions |
-| Embedding drift over time | Medium | Medium | Regular model retraining, A/B testing |
-| Database scalability issues | Low | High | Horizontal sharding, load testing |
-| Vision model bias | Medium | Medium | Diverse training data, fairness audits |
+**Hypothesis:** Direct vision embeddings will likely outperform text-based approach because:
+- No information loss in image→text conversion
+- More consistent representations
+- Faster inference
 
-### 9.2 Operational Risks
-
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Infrastructure costs exceed budget | Medium | High | Cost monitoring, auto-scaling policies |
-| Model serving latency spikes | Medium | High | Load balancing, caching, CDN |
-| Data privacy concerns | Low | High | Data anonymization, compliance review |
-| Vendor lock-in | Medium | Medium | Use open-source components where possible |
+**However,** text-based approach might excel at:
+- Distinguishing visually similar foods with different preparation methods
+- Providing interpretable reasons for classifications
+- Zero-shot recognition of new food types
 
 ---
 
-## 10. Budget & Resource Requirements
+## 9. Potential Challenges
 
-### 10.1 Development Phase (9 weeks)
+### 9.1 Technical Challenges
 
-| Resource | Quantity | Cost Estimate |
-|----------|----------|---------------|
-| ML Engineer | 1 FTE | $18,000 |
-| Backend Engineer | 0.5 FTE | $7,500 |
-| GPU Compute (A100) | 200 hours | $800 |
-| Cloud Storage | 500 GB | $50 |
-| Vector DB (Qdrant Cloud) | Development tier | $0 (free tier) |
-| **Total Development** | | **~$26,350** |
+**Data Quality**
+- Public food datasets may have inconsistent labels
+- Images vary in quality and angle
+- Some categories may overlap (e.g., "sandwich" vs "burger")
 
-### 10.2 Production Costs (Monthly)
+**Computational Resources**
+- VLLM inference requires GPU access (Google Colab Pro or university cluster)
+- May need to use smaller models if resources limited
+- Vector database storage for large datasets
 
-| Resource | Specification | Monthly Cost |
-|----------|--------------|--------------|
-| API Instances | 2x t3.medium (AWS) | $120 |
-| Vector Database | Qdrant managed (1M vectors) | $99 |
-| Storage | 1TB S3 | $23 |
-| GPU Inference | Serverless (on-demand) | $200-400 |
-| Monitoring & Logging | CloudWatch, Datadog | $50 |
-| **Total Monthly** | | **~$492-692** |
+**Model Access**
+- FoodLMM may not be publicly available or easy to set up
+- May need to use alternative VLLMs (LLaVA, BLIP-2, etc.)
+- API costs if using commercial models
 
-**Estimated First Year Total Cost:** $32,000 - $35,000
+### 9.2 Mitigation Strategies
 
----
-
-## 11. Success Criteria & Validation
-
-### 11.1 Phase 1 (PoC) Success
-- [x] System processes 1000 test images with >=75% top-1 accuracy
-- [x] Inference latency < 100ms for 95% of requests
-- [x] Cost per 1000 queries < $0.50
-- [x] Technical feasibility demonstrated
-
-### 11.2 Phase 2 (Optimization) Success
-- [x] Top-1 accuracy improves to >=85%
-- [x] Inference latency reduces to < 50ms
-- [x] System handles 100+ concurrent users
-- [x] Cost per 1000 queries < $0.10
-
-### 11.3 Phase 3 (Production) Success
-- [x] Production deployment with 99.5% uptime
-- [x] Successful integration with client application
-- [x] User acceptance testing passed
-- [x] Documentation complete
+- Start with smaller dataset (Food-101 subset, ~50 classes)
+- Use free tier of vector databases (Qdrant Cloud, Pinecone)
+- Leverage Google Colab for GPU access
+- Use open-source models from Hugging Face
+- Batch processing to reduce API calls
 
 ---
 
-## 12. Deliverables
+## 10. Resources Needed
 
-### 12.1 Code & Models
-- [ ] Trained vision encoder model
-- [ ] Populated vector database
-- [ ] REST API service (FastAPI)
-- [ ] Client SDK (Python, JavaScript)
-- [ ] Docker containers and Kubernetes configs
+### 10.1 Computational Resources
+- GPU access (Google Colab Pro or university compute cluster)
+- Storage: ~10-50GB for dataset and models
+- RAM: 16GB+ recommended
+
+### 10.2 Software/Tools
+- Python 3.8+
+- PyTorch or TensorFlow
+- CLIP (from OpenAI)
+- Sentence Transformers
+- Vector database: FAISS (local) or Qdrant (free tier)
+- Jupyter notebooks for experiments
+
+### 10.3 Datasets
+- Food-101 (public, free)
+- Or VIREO Food-172
+- Start with subset to stay within computational limits
+
+---
+
+## 11. Success Criteria
+
+### Project will be considered successful if:
+
+✅ **Both approaches implemented and tested**
+- Text-based VLLM approach working
+- Vision-based baseline working
+- Fair comparison on same dataset
+
+✅ **Comprehensive evaluation completed**
+- Accuracy metrics calculated
+- Speed comparison documented
+- Failure analysis conducted
+
+✅ **Clear findings documented**
+- Advantages/disadvantages of each approach identified
+- Recommendations supported by data
+- Lessons learned documented
+
+✅ **Deliverables completed**
+- Code repository with documentation
+- Final report with results
+- Presentation ready
+
+---
+
+## 12. Project Deliverables
+
+### 12.1 Code
+- [ ] Python implementation of both approaches
+- [ ] Jupyter notebooks for experiments
+- [ ] Scripts for data preparation
+- [ ] README with setup instructions
+- [ ] GitHub repository
 
 ### 12.2 Documentation
-- [ ] System architecture documentation
-- [ ] API reference guide
-- [ ] Deployment guide
-- [ ] Model performance report
-- [ ] Troubleshooting guide
+- [ ] Final project report (10-15 pages)
+  - Introduction & motivation
+  - Related work / literature review
+  - Methodology
+  - Experimental results
+  - Analysis & discussion
+  - Conclusions & future work
+  
+- [ ] Code documentation (docstrings, comments)
 
-### 12.3 Monitoring & Tools
-- [ ] Grafana dashboards for metrics
-- [ ] Alerting rules (PagerDuty/Slack)
-- [ ] Model evaluation notebooks
-- [ ] Automated testing suite
-
----
-
-## 13. Next Steps
-
-### Immediate Actions (This Week)
-1. **Stakeholder approval** - Review and approve this proposal
-2. **Dataset procurement** - Identify food image datasets (Food-101, VIREO Food-172)
-3. **Environment setup** - Provision GPU infrastructure
-4. **Team assignment** - Allocate engineering resources
-
-### Short-term (Next 2 Weeks)
-1. Begin Phase 1 implementation
-2. Set up development environment
-3. Establish baseline metrics
-4. Weekly progress reviews
-
-### Decision Points
-- **Week 2:** Go/no-go based on initial accuracy results
-- **Week 5:** Decision on production approach (vision-only vs hybrid)
-- **Week 8:** Production deployment approval
+### 12.3 Presentation
+- [ ] Slide deck (15-20 slides)
+- [ ] Demo (if time permits)
+- [ ] Results visualization (confusion matrices, charts)
 
 ---
 
-## 14. Conclusion & Recommendation
+## 13. Conclusion
 
-**Recommendation:** Proceed with **Direct Vision Embedding Approach** (Section 4.1)
+This project will investigate whether using Vision-Language Models to generate text descriptions as an intermediate representation can improve food classification accuracy compared to direct vision embeddings. 
 
-**Rationale:**
-1. **Superior Performance:** 10-50x faster inference than text-based approach
-2. **Cost-Effective:** ~90% reduction in operational costs
-3. **Proven Technology:** Well-established techniques with strong track record
-4. **Scalability:** Designed for production workloads from day one
-5. **Lower Risk:** Simpler architecture reduces failure points
+**Main Research Question:** Is the computational overhead of generating text descriptions justified by accuracy improvements?
 
-The original text-based VLLM approach, while innovative, introduces unnecessary complexity and cost without corresponding benefits. Direct vision embeddings achieve comparable or better accuracy while dramatically reducing latency and operational overhead.
+**Expected Contribution:**
+- Empirical comparison of text-based vs vision-based food classification
+- Analysis of trade-offs between interpretability and efficiency
+- Documentation of lessons learned for future work
 
-**Fallback Strategy:**
-If vision-only approach fails to meet accuracy targets, implement hybrid approach (Section 4.2) to leverage VLLM for edge cases while maintaining fast performance for common queries.
+**Personal Learning Goals:**
+- Gain hands-on experience with VLLMs and vision models
+- Learn vector similarity search and embedding techniques
+- Understand practical considerations in ML system design
+- Develop skills in experimental design and evaluation
 
 ---
 
-## Appendix A: References
+## Appendix A: Useful Resources
 
 ### Research Papers
-- **FoodLMM:** "Multi-modal Food Understanding with Large Language Models" (2024)
-- **CLIP:** "Learning Transferable Visual Models From Natural Language Supervision" (2021)
-- **DINOv2:** "DINOv2: Learning Robust Visual Features without Supervision" (2023)
+- **CLIP:** "Learning Transferable Visual Models From Natural Language Supervision" (Radford et al., 2021)
+- **DINOv2:** "DINOv2: Learning Robust Visual Features without Supervision" (Oquab et al., 2023)
+- **FoodLMM:** Search for recent food-specific vision-language models
 
 ### Datasets
-- **Food-101:** 101,000 images, 101 categories
+- **Food-101:** 101,000 images, 101 categories - https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/
 - **VIREO Food-172:** 110,241 images, 172 categories
-- **Recipe1M+:** 1M+ recipe images with instructions
 
-### Tools & Frameworks
-- **Qdrant:** Vector database - https://qdrant.tech
-- **Sentence Transformers:** Text embeddings - https://www.sbert.net
-- **FastAPI:** API framework - https://fastapi.tiangolo.com
+### Tools & Libraries
+- **CLIP:** https://github.com/openai/CLIP
+- **Sentence Transformers:** https://www.sbert.net
+- **FAISS:** https://github.com/facebookresearch/faiss (vector search)
+- **Qdrant:** https://qdrant.tech (vector database)
+- **Hugging Face:** https://huggingface.co (pre-trained models)
+
+### Tutorials
+- Vector similarity search basics
+- Fine-tuning vision models
+- Working with embeddings
 
 ---
 
-## Appendix B: Glossary
+## Appendix B: Technical Terms
 
 | Term | Definition |
 |------|------------|
-| **VLLM** | Vision-Language Large Model - AI models that understand both images and text |
-| **Vector Database** | Database optimized for storing and searching high-dimensional vectors |
-| **Embedding** | Dense numerical representation of data (image/text) in vector space |
-| **ANN** | Approximate Nearest Neighbor - fast similarity search algorithm |
-| **HNSW** | Hierarchical Navigable Small World - graph-based ANN algorithm |
-| **mAP** | Mean Average Precision - metric for ranking quality |
-| **QPS** | Queries Per Second - throughput measurement |
-| **FTE** | Full-Time Equivalent - resource allocation unit |
+| **VLLM** | Vision-Language Model - AI that understands images and text |
+| **Embedding** | Dense vector representation of data |
+| **Vector Database** | Database for storing and searching vectors |
+| **Similarity Search** | Finding closest vectors to a query |
+| **Top-K Accuracy** | Percentage where correct answer is in top K predictions |
+| **Zero-shot** | Model performs task without specific training |
 
 ---
 
-## Document Control
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | Feb 14, 2026 | Abdulrazzak Ghazal, Abdullah Madoun | Initial proposal |
-
-## Approval
-
-| Role | Name | Signature | Date |
-|------|------|-----------|------|
-| Technical Lead | Abdulrazzak Ghazal |  |  |
-| Product Manager | Abdullah Madoun |  |  |
-| Engineering Manager |  |  |  |
-
----
-
-*For questions or clarifications, please contact the project team.*
+**Note:** This is a living document and may be updated as the project progresses.
